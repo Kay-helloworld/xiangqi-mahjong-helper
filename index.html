@@ -7,7 +7,8 @@
         content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>象棋麻將決策助手</title>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@500;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css">
+    <!-- 加上版本號強制刷新快取 -->
+    <link rel="stylesheet" href="style.css?v=1.1">
 </head>
 
 <body>
@@ -44,15 +45,12 @@
 
         <!-- 決策建議 HUD -->
         <div class="decision-hud">
-            <!-- 防守建議 -->
             <div class="hud-panel defense">
                 <div class="hud-title">🛡️ 防守 (現物/危險)</div>
                 <div class="hud-content" id="rec-defense">
                     <div class="placeholder-text">觀察場上...</div>
                 </div>
             </div>
-
-            <!-- 進攻建議 -->
             <div class="hud-panel offense">
                 <div class="hud-title">⚔️ 進攻 (EV分析)</div>
                 <div class="hud-content" id="rec-offense">
@@ -63,25 +61,23 @@
 
         <!-- 玩家區域 (底部) -->
         <div class="player-zone">
-            <!-- 自己的河/吃牌 -->
             <div class="player-info">
                 <div class="river self" id="river-0"></div>
                 <div class="melds self" id="melds-0"></div>
             </div>
 
-            <!-- 操作提示 -->
             <div class="action-hint" id="action-hint">請建立起始手牌 (4張)</div>
 
-            <!-- 手牌區 -->
-            <div class="hand-container">
-                <div class="hand-tiles" id="my-hand">
+            <!-- 手牌區：直接加入 inline style 強制橫排 -->
+            <div class="hand-container" style="display: flex; justify-content: center; align-items: center; gap: 10px;">
+                <div id="my-hand" style="display: flex; gap: 6px; flex-direction: row !important;">
                     <!-- 手牌 JS 生成 -->
                 </div>
                 <!-- 摸到的牌 -->
                 <div class="drawn-tile hidden" id="drawn-tile"></div>
             </div>
 
-            <!-- 鍵盤區 (雙層) -->
+            <!-- 鍵盤區 -->
             <div class="keyboard-area">
                 <div class="kb-row red-row">
                     <button class="kb-btn red" data-tile="帥">帥</button>
@@ -103,7 +99,6 @@
                 </div>
             </div>
 
-            <!-- 功能按鈕 -->
             <div class="controls">
                 <button class="ctrl-btn undo" id="undo-btn">↩️ 撤銷</button>
                 <button class="ctrl-btn draw" id="draw-btn">🀄️ 我摸牌</button>
@@ -111,19 +106,12 @@
         </div>
     </div>
 
-    <!-- 唯一彈窗: 吃牌記錄/刪除 -->
+    <!-- 彈窗 -->
     <div id="meldInputModal" class="modal">
         <div class="modal-content">
-            <h3 id="meld-title">吃牌記錄(自動識別)</h3>
-
-            <!-- 顯示吃+補 -->
-            <div class="meld-preview" id="meld-preview">
-                <!-- [吃進來的牌] -->
-            </div>
-
+            <h3 id="meld-title">吃牌記錄</h3>
+            <div class="meld-preview" id="meld-preview"></div>
             <p class="modal-hint">確定記錄此吃牌動作？</p>
-
-            <!-- 操作按鈕 -->
             <div class="modal-actions-apart">
                 <button class="delete-btn" onclick="onDeleteTile()">🗑️ 刪牌</button>
                 <div class="right-actions">
