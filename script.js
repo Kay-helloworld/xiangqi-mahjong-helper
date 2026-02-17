@@ -70,7 +70,7 @@ function init() {
         history: []
     };
     render();
-    attachEvents();
+    // attachEvents(); // 移除這裡的調用，避免重複綁定
 }
 
 function inputTile(char) {
@@ -348,6 +348,7 @@ function attachEvents() {
 }
 
 init();
+attachEvents(); // 唯一一次綁定
 // Exports
 window.inputTile = inputTile;
 window.discardMe = discardMe;
