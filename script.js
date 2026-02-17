@@ -1,4 +1,4 @@
-// 象棋麻將助手 - 四家戰情室版 (簡化吃牌邏輯)
+// 象棋麻將助手 - 戰術智慧版 (V2)
 
 const TILES = {
     R7: { name: '帥', count: 1, val: 7, type: 'red' },
@@ -25,20 +25,26 @@ const REV_MAP = Object.fromEntries(Object.entries(ID_MAP).map(([k, v]) => [v, k]
 
 const PLAYER_NAMES = ['我', '下家', '對家', '上家'];
 
+const MELDS_DEFINITIONS = [
+    ['R7', 'R6', 'R5'], // 帥仕相
+    ['B7', 'B6', 'B5'], // 將士象
+    ['R4', 'R3', 'R2'], // 俥傌炮
+    ['B4', 'B3', 'B2']  // 車馬包
+];
+
 let gameState = {
     wallCount: 32,
     myHand: [],
     drawnTile: null,
     rivers: [[], [], [], []],
-    melds: [[], [], [], []], // [ { type:'eat', tiles:['R1'] } ] - 只存一張
-
+    melds: [[], [], [], []],
     mode: 'hand',
     selectedPlayer: 3,
     history: []
 };
 
-let tempAction = null; // { sourceP, sourceTIdx, tileId }
-let tempMeld = null;   // { eater, tiles: [] }
+let tempAction = null;
+let tempMeld = null;
 
 function pushHistory() {
     gameState.history.push(JSON.parse(JSON.stringify({
@@ -46,7 +52,9 @@ function pushHistory() {
         myHand: gameState.myHand,
         drawnTile: gameState.drawnTile,
         rivers: gameState.rivers,
-        melds: gameState.melds
+        melds: gameState.melds,
+        selectedPlayer: gameState.selectedPlayer,
+        mode: gameState.mode
     })));
 }
 
@@ -70,17 +78,13 @@ function init() {
         history: []
     };
     render();
-    // attachEvents(); // 移除這裡的調用，避免重複綁定
+    attachEvents();
 }
 
 function inputTile(char) {
     const id = ID_MAP[char];
     if (!id) return;
-
-    // 如果 Modal 開啟，不再響應輸入（因為不需要補充牌了）
-    if (document.getElementById('meldInputModal').classList.contains('show')) {
-        return;
-    }
+    if (document.getElementById('meldInputModal').classList.contains('show')) return;
 
     pushHistory();
     gameState.wallCount--;
@@ -132,22 +136,12 @@ function sortHand() {
     gameState.myHand.sort((a, b) => val(b) - val(a));
 }
 
-// --- River Click ---
 function onRiverClick(pIdx, tIdx, id) {
     tempAction = { sourceP: pIdx, sourceTIdx: tIdx, tileId: id };
-
-    // Auto detect eater: (pIdx + 1) % 4
     const eaterIdx = (pIdx + 1) % 4;
-
-    tempMeld = {
-        eater: eaterIdx,
-        tiles: [id] // 只包括這張牌
-    };
-
-    // Setup Modal
+    tempMeld = { eater: eaterIdx, tiles: [id] };
     const eaterName = PLAYER_NAMES[eaterIdx];
     document.getElementById('meld-title').textContent = `${eaterName} 吃 ${REV_MAP[id]}?`;
-
     updateMeldPreview();
     document.getElementById('meldInputModal').classList.add('show');
 }
@@ -160,59 +154,40 @@ function closeModals() {
 
 function updateMeldPreview() {
     const container = document.getElementById('meld-preview');
-    // 只顯示一張
     container.innerHTML = tempMeld.tiles.map(id => createTile(id, 'normal')).join('');
 }
 
 function onDeleteTile() {
     if (!tempAction) return;
     pushHistory();
-    // 刪除該河牌
     gameState.rivers[tempAction.sourceP].splice(tempAction.sourceTIdx, 1);
-
     gameState.wallCount++;
-
     closeModals();
     render();
 }
 
 function finishMeld() {
     if (!tempMeld || !tempAction) return;
-
     pushHistory();
 
-    // 1. Remove eaten tile from source river
+    // 移除河牌
     gameState.rivers[tempAction.sourceP].splice(tempAction.sourceTIdx, 1);
 
-    // 2. Add to eater's Melds (Record keeping)
+    // 加入吃牌區
     gameState.melds[tempMeld.eater].push({
         type: 'eat',
-        tiles: tempMeld.tiles, // [id]
+        tiles: tempMeld.tiles,
         from: tempAction.sourceP
     });
 
-    // 3. 如果是我吃，還要真正加到手牌裡
     if (tempMeld.eater === 0) {
-        // 先檢查手牌上限？理論上吃牌只能在輪到自己摸牌前（也就是手牌4張時）發生
-        // 吃牌後手牌變成 5 張
-        if (gameState.drawnTile) {
-            // 這是不應該發生的，除非記錄有錯
-            // 但為了強健性，我們假設這是剛摸到的牌
-            // 不處理，直接加
-        }
-        // 將這張牌加入手牌 (視為 drawnTile 比較好，因為要打出一張)
-        // 或者直接 push 到 hand，反正 discardMe 會處理
-        // 為了 UI 邏輯一致（需要打出一張），我們把它設為 `drawnTile`
-        if (gameState.myHand.length === 4) {
-            gameState.drawnTile = tempMeld.tiles[0];
-        } else {
-            gameState.myHand.push(tempMeld.tiles[0]); // 一般補牌
-            sortHand();
-        }
+        if (gameState.myHand.length === 4) gameState.drawnTile = tempMeld.tiles[0];
+        else { gameState.myHand.push(tempMeld.tiles[0]); sortHand(); }
+        gameState.mode = 'hand'; // 我吃牌，選中模式為 hand
+    } else {
+        gameState.selectedPlayer = tempMeld.eater; // 自動切換到吃牌的那家
+        gameState.mode = 'record';
     }
-
-    // 4. Update Wall Count -> 不變！
-    // 吃牌是撿河裡的，不消耗牆牌
 
     closeModals();
     render();
@@ -220,35 +195,26 @@ function finishMeld() {
 
 // --- 核心 AI 邏輯 ---
 
-const MELDS = [
-    ['R7', 'R6', 'R5'], // 帥仕相
-    ['B7', 'B6', 'B5'], // 將士象
-    ['R4', 'R3', 'R2'], // 俥傌炮
-    ['B4', 'B3', 'B2']  // 車馬包
-];
-
 function checkHu(tiles) {
     if (tiles.length !== 5) return false;
-
-    // 1. 五兵/五卒判定
     const counts = {};
     tiles.forEach(t => counts[t] = (counts[t] || 0) + 1);
+
+    // 1. 五兵/五卒判定
     if (counts['R1'] === 5 || counts['B1'] === 5) return { type: 'five_pawns', score: 50 };
 
-    // 2. 3+2 結構判定
-    // 遍歷所有可能的將 (對子)
+    // 2. 3+2 結構判定 (必須有對子 + 一組面子)
     const uniqueTiles = Object.keys(counts);
     for (let pairTile of uniqueTiles) {
         if (counts[pairTile] >= 2) {
-            // 剩下的 3 張牌必須組成一組面子 (順子或刻子)
             let remaining = [...tiles];
-            // 移除對子
-            remaining.splice(remaining.indexOf(pairTile), 1);
-            remaining.splice(remaining.indexOf(pairTile), 1);
+            // 移除兩張對子
+            const firstIdx = remaining.indexOf(pairTile);
+            remaining.splice(firstIdx, 1);
+            const secondIdx = remaining.indexOf(pairTile);
+            remaining.splice(secondIdx, 1);
 
-            if (isMeld(remaining)) {
-                return { type: 'normal', score: calculateScore(tiles) };
-            }
+            if (isMeld(remaining)) return { type: 'normal', score: calculateScore(tiles) };
         }
     }
     return false;
@@ -256,99 +222,63 @@ function checkHu(tiles) {
 
 function isMeld(tiles) {
     if (tiles.length !== 3) return false;
-    tiles.sort();
+    const sorted = [...tiles].sort();
 
-    // 刻子判定
-    if (tiles[0] === tiles[1] && tiles[1] === tiles[2]) return true;
+    // 刻子
+    if (sorted[0] === sorted[1] && sorted[1] === sorted[2]) return true;
 
-    // 順子判定
-    for (let meld of MELDS) {
-        let tempMeld = [...meld].sort();
-        if (tiles[0] === tempMeld[0] && tiles[1] === tempMeld[1] && tiles[2] === tempMeld[2]) return true;
+    // 順子
+    for (let mDef of MELDS_DEFINITIONS) {
+        let sortedDef = [...mDef].sort();
+        if (sorted[0] === sortedDef[0] && sorted[1] === sortedDef[1] && sorted[2] === sortedDef[2]) return true;
     }
-
-    // 特殊：兵兵兵/卒卒卒 也是刻子，上面的刻子判定已涵蓋
     return false;
 }
 
 function calculateScore(tiles) {
     const isRed = tiles.every(t => t.startsWith('R'));
     const isBlack = tiles.every(t => t.startsWith('B'));
-    if (isRed || isBlack) return 20; // 清一色
-    return 10; // 混色
+    return (isRed || isBlack) ? 20 : 10;
 }
 
-// --- 分析 & UI ---
+function getRemaining(id) {
+    let count = TILES[id].count;
+    gameState.myHand.forEach(t => { if (t === id) count--; });
+    if (gameState.drawnTile === id) count--;
+    gameState.rivers.forEach(r => r.forEach(t => { if (t === id) count--; }));
+    gameState.melds.forEach(mList => mList.forEach(m => m.tiles.forEach(t => { if (t === id) count--; })));
+    return Math.max(0, count);
+}
 
-function analyze() {
-    const defenseEl = document.getElementById('rec-defense');
-    const offenseEl = document.getElementById('rec-offense');
+// --- 戰術權重邏輯 (當胡牌機率相差不遠或為0時) ---
+function evaluateHandPotential(tiles) {
+    let score = 0;
+    const counts = {};
+    tiles.forEach(t => counts[t] = (counts[t] || 0) + 1);
 
-    // 1. 防守分析
-    let safeTiles = new Set();
-    gameState.rivers.forEach(r => r.forEach(t => safeTiles.add(t)));
-    gameState.melds.forEach(mList => mList.forEach(m => m.tiles.forEach(t => safeTiles.add(t))));
+    // 1. 清一色潛力 (同色牌越多加越多)
+    const reds = tiles.filter(t => t[0] === 'R').length;
+    const blacks = tiles.filter(t => t[0] === 'B').length;
+    score += Math.max(reds, blacks) * 2;
 
-    if (safeTiles.size === 0) {
-        defenseEl.innerHTML = '<div class="placeholder-text">無現物</div>';
-    } else {
-        defenseEl.innerHTML = Array.from(safeTiles).map(id => createTile(id, 'tiny')).join('');
+    // 2. 對子加分
+    Object.values(counts).forEach(c => { if (c >= 2) score += 5; });
+
+    // 3. 順子搭子加分 (檢查是否有 2/3 的順子)
+    // 簡單判定：遍歷所有定義的順子，看手牌包含其中幾個
+    for (let def of MELDS_DEFINITIONS) {
+        let matchCount = 0;
+        let localCounts = { ...counts };
+        def.forEach(d => { if (localCounts[d] > 0) { matchCount++; localCounts[d]--; } });
+        if (matchCount === 2) score += 4;
+        if (matchCount === 3) score += 10;
     }
 
-    // 2. 進攻分析 (EV)
-    if (gameState.myHand.length < 4) {
-        offenseEl.innerHTML = '<div class="placeholder-text">先輸入 4 張手牌</div>';
-        return;
-    }
+    // 4. 五兵潛力
+    if (counts['R1'] >= 2) score += counts['R1'] * 3;
+    if (counts['B1'] >= 2) score += counts['B1'] * 3;
 
-    const currentHand = [...gameState.myHand];
-    if (gameState.drawnTile) currentHand.push(gameState.drawnTile);
-
-    // 如果目前手牌已經胡了
-    if (currentHand.length === 5) {
-        const hu = checkHu(currentHand);
-        if (hu) {
-            offenseEl.innerHTML = `<div style="color:#ffeb3b; font-weight:bold;">✨ 已胡牌: ${hu.score}分 (${hu.type === 'five_pawns' ? '五兵/卒' : '3+2'})</div>`;
-            return;
-        }
-    }
-
-    // 計算打哪張牌 EV 最高
-    // 如果只有 4 張，計算摸哪張牌 EV 最高 (進牌點)
-    if (currentHand.length === 4) {
-        const waiting = getWaitingTiles(currentHand);
-        if (waiting.length === 0) {
-            offenseEl.innerHTML = '<div class="placeholder-text">目前沒聽牌</div>';
-        } else {
-            let html = '<div class="ev-list">';
-            waiting.sort((a, b) => b.ev - a.ev);
-            waiting.forEach(w => {
-                html += `<div class="ev-item">${createTile(w.id, 'tiny')} x ${w.count}張 (EV: ${w.ev.toFixed(1)})</div>`;
-            });
-            html += '</div>';
-            offenseEl.innerHTML = html;
-        }
-    } else {
-        // 有 5 張牌，分析打哪張好
-        let discards = [];
-        const uniqueInHand = [...new Set(currentHand)];
-
-        uniqueInHand.forEach(tileToDiscard => {
-            let tempHand = [...currentHand];
-            tempHand.splice(tempHand.indexOf(tileToDiscard), 1);
-            const waiting = getWaitingTiles(tempHand);
-            const totalEV = waiting.reduce((sum, w) => sum + w.ev, 0);
-            discards.push({ id: tileToDiscard, ev: totalEV, waitingCount: waiting.reduce((sum, w) => sum + w.count, 0) });
-        });
-
-        discards.sort((a, b) => b.ev - a.ev);
-        let html = '<div class="ev-list">';
-        discards.forEach(d => {
-            html += `<div class="ev-item">打 ${REV_MAP[d.id]} -> 聽 ${d.waitingCount}張 (EV: ${d.ev.toFixed(1)})</div>`;
-        });
-        html += '</div>';
-        offenseEl.innerHTML = html;
-    }
+    return score;
 }
 
 function getWaitingTiles(fourTiles) {
@@ -361,36 +291,93 @@ function getWaitingTiles(fourTiles) {
         if (count > 0) {
             const hu = checkHu([...fourTiles, id]);
             if (hu) {
-                // EV = (該牌張數 / 剩餘總牌數) * 分數
-                // 這裡簡化為 該牌張數 * 分數，最後再考慮比例或直接顯示
-                waiting.push({ id, count, score: hu.score, ev: (count / wallLeft) * hu.score });
+                waiting.push({ id, count, huScore: hu.score, ev: (count / wallLeft) * hu.score });
             }
         }
     });
     return waiting;
 }
 
-function getRemaining(id) {
-    // 這裡我們只計算「絕對已知」的牌
-    let count = TILES[id].count;
-    // Hand
-    gameState.myHand.forEach(t => { if (t === id) count--; });
-    if (gameState.drawnTile === id) count--;
-    // Rivers
-    gameState.rivers.forEach(r => r.forEach(t => { if (t === id) count--; }));
-    // Melds (所有 meld 裡的牌都是已知的)
-    gameState.melds.forEach(mList => mList.forEach(m => {
-        m.tiles.forEach(t => { if (t === id) count--; });
-    }));
-    return count;
-}
+function analyze() {
+    const defenseEl = document.getElementById('rec-defense');
+    const offenseEl = document.getElementById('rec-offense');
 
+    // 防守：僅顯示目前河裡的現物
+    let safeTiles = new Set();
+    gameState.rivers.forEach(r => r.forEach(t => safeTiles.add(t)));
+    let warnings = [];
+    for (let i = 1; i <= 3; i++) {
+        if (gameState.melds[i].some(m => m.tiles.includes('R1') || m.tiles.includes('B1'))) {
+            warnings.push(`${PLAYER_NAMES[i]}聽兵!`);
+        }
+    }
+    let dHtml = '<div class="defense-list">';
+    if (warnings.length > 0) dHtml += `<div class="warning-text">${warnings.join(' ')}</div>`;
+    dHtml += '<div class="safe-icons">' + Array.from(safeTiles).map(id => createTile(id, 'tiny')).join('') + '</div></div>';
+    defenseEl.innerHTML = dHtml;
+
+    // 進攻
+    if (gameState.myHand.length < 4) {
+        offenseEl.innerHTML = '<div class="placeholder-text">先輸入 4 張手牌</div>';
+        return;
+    }
+
+    const currentHand = [...gameState.myHand];
+    if (gameState.drawnTile) currentHand.push(gameState.drawnTile);
+
+    // 已胡牌判定
+    if (currentHand.length === 5) {
+        const hu = checkHu(currentHand);
+        if (hu) {
+            offenseEl.innerHTML = `<div style="color:#ffeb3b; font-weight:bold; text-align:center;">✨ 已胡牌: ${hu.score}分</div>`;
+            return;
+        }
+    }
+
+    if (currentHand.length === 4) {
+        const waiting = getWaitingTiles(currentHand);
+        if (waiting.length === 0) {
+            offenseEl.innerHTML = '<div class="placeholder-text">目前未聽牌 (向聽中)</div>';
+        } else {
+            let html = '<div class="ev-list">';
+            waiting.sort((a, b) => b.ev - a.ev).forEach(w => {
+                html += `<div class="ev-item">${createTile(w.id, 'tiny')} x ${w.count}張 (EV:${w.ev.toFixed(1)})</div>`;
+            });
+            offenseEl.innerHTML = html + '</div>';
+        }
+    } else {
+        // 5 張牌的建議打法
+        let analysis = [];
+        const choices = [...new Set(currentHand)];
+        choices.forEach(t => {
+            let nextHand = [...currentHand];
+            nextHand.splice(nextHand.indexOf(t), 1);
+
+            const waitings = getWaitingTiles(nextHand);
+            const totalEV = waitings.reduce((s, w) => s + w.ev, 0);
+            const totalWaitCount = waitings.reduce((s, w) => s + w.count, 0);
+
+            // 如果 EV 是 0，根據潛力模型評分
+            const potential = evaluateHandPotential(nextHand);
+
+            analysis.push({ id: t, ev: totalEV, wCount: totalWaitCount, potential: potential });
+        });
+
+        // 排序：EV 優先，Potential 其次
+        analysis.sort((a, b) => b.ev - a.ev || b.potential - a.potential);
+
+        let html = '<div class="ev-list">';
+        analysis.forEach(a => {
+            let label = a.ev > 0 ? `聽${a.wCount}張 (EV:${a.ev.toFixed(1)})` : `(潛力:${a.potential})`;
+            html += `<div class="ev-item">打${REV_MAP[a.id]} -> ${label}</div>`;
+        });
+        offenseEl.innerHTML = html + '</div>';
+    }
+}
 
 function render() {
     document.getElementById('wall-count').textContent = gameState.wallCount;
-
     for (let i = 0; i < 4; i++) {
-        // Rivers
         const rEl = document.getElementById(`river-${i}`);
         rEl.innerHTML = '';
         gameState.rivers[i].forEach((id, idx) => {
@@ -400,37 +387,20 @@ function render() {
             div.onclick = (e) => { e.stopPropagation(); onRiverClick(i, idx, id); };
             rEl.appendChild(div);
         });
-
-        // Melds - 只顯示單張被吃進來的
         const mEl = document.getElementById(`melds-${i}`);
-        mEl.innerHTML = gameState.melds[i].map(m => {
-            // m.tiles 只有一張
-            return `<div class="meld-group">${m.tiles.map(id => createTile(id, 'tiny')).join('')}</div>`;
-        }).join('');
-
-        // Highlight
+        mEl.innerHTML = gameState.melds[i].map(m => `<div class="meld-group">${m.tiles.map(id => createTile(id, 'tiny')).join('')}</div>`).join('');
         if (i > 0) {
             const oppEl = document.getElementById(`player-${i}`);
-            if (gameState.selectedPlayer === i && gameState.mode === 'record') {
-                oppEl.classList.add('selected');
-            } else {
-                oppEl.classList.remove('selected');
-            }
+            oppEl.classList.toggle('selected', gameState.selectedPlayer === i && gameState.mode === 'record');
         }
     }
-
-    // Hand
     const handDiv = document.getElementById('my-hand');
     handDiv.innerHTML = gameState.myHand.map((id, idx) => createTile(id, 'normal', `discardMe(${idx})`)).join('');
-
     const drawDiv = document.getElementById('drawn-tile');
     if (gameState.drawnTile) {
         drawDiv.innerHTML = createTile(gameState.drawnTile, 'normal', `discardMe(-1)`);
         drawDiv.classList.remove('hidden');
-    } else {
-        drawDiv.classList.add('hidden');
-    }
-
+    } else { drawDiv.classList.add('hidden'); }
     analyze();
 }
 
@@ -439,46 +409,20 @@ function createTile(id, size = 'normal', action = '') {
     const clickAttr = action ? `onclick="${action}"` : '';
     return `<div class="${createTileClass(id, size)}" ${clickAttr}>${char}</div>`;
 }
-
 function createTileClass(id, size) {
     const type = id.startsWith('R') ? 'red' : 'black';
     return `game-tile ${size} ${type}`;
 }
-
 function selectOpponent(idx) {
-    gameState.selectedPlayer = idx;
-    gameState.mode = 'record';
-    render();
+    gameState.selectedPlayer = idx; gameState.mode = 'record'; render();
 }
-
 function attachEvents() {
-    [1, 2, 3].forEach(idx => {
-        document.getElementById(`player-${idx}`).addEventListener('click', () => selectOpponent(idx));
-    });
-
-    document.getElementById('draw-btn').addEventListener('click', () => {
-        gameState.mode = 'hand';
-        render();
-    });
-
-    document.querySelectorAll('.kb-btn').forEach(btn => {
-        if (btn.dataset.tile) {
-            btn.addEventListener('click', () => inputTile(btn.dataset.tile));
-        }
-    });
-
+    [1, 2, 3].forEach(idx => document.getElementById(`player-${idx}`).addEventListener('click', () => selectOpponent(idx)));
+    document.getElementById('draw-btn').addEventListener('click', () => { gameState.mode = 'hand'; render(); });
+    document.querySelectorAll('.kb-btn').forEach(btn => { if (btn.dataset.tile) btn.addEventListener('click', () => inputTile(btn.dataset.tile)); });
     document.getElementById('undo-btn').addEventListener('click', undo);
     document.getElementById('reset-btn').addEventListener('click', () => { if (confirm('重置?')) init(); });
 }
-
 init();
-attachEvents(); // 唯一一次綁定
-// Exports
-window.inputTile = inputTile;
-window.discardMe = discardMe;
-window.onRiverClick = onRiverClick;
-window.onDeleteTile = onDeleteTile;
-// window.addMeldTile = addMeldTile; // No longer needed
-window.finishMeld = finishMeld;
-window.undo = undo;
-window.closeModals = closeModals;
+attachEvents();
+window.inputTile = inputTile; window.discardMe = discardMe; window.onRiverClick = onRiverClick; window.onDeleteTile = onDeleteTile; window.finishMeld = finishMeld; window.undo = undo; window.closeModals = closeModals;
