@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>象棋麻將決策助手</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <header class="game-header">
+        <div class="header-left">
+            <div class="info-badge">剩餘: <span id="wall-count" class="highlight">32</span></div>
+        </div>
+        <div class="header-title">象棋麻將</div>
+        <div class="header-right">
+            <button class="icon-btn" id="reset-btn">🔄</button>
+        </div>
+    </header>
+
+    <!-- 殘牌計數器 (Tile Counter) -->
+    <!-- 這也是用來輸入對手打牌的鍵盤 -->
+    <div class="counter-panel" id="tile-counter">
+        <div class="counter-row red-row" id="counter-red">
+            <!-- JS 生成: 帥仕相俥傌炮兵 -->
+        </div>
+        <div class="counter-row black-row" id="counter-black">
+            <!-- JS 生成: 將士象車馬包卒 -->
+        </div>
+        <div class="panel-hint">點擊上方棋子 = 記錄對手打出的牌</div>
+    </div>
+
+    <!-- 遊戲主區域 -->
+    <div class="game-area">
+        <!-- 建議面板 -->
+        <div class="decision-panel">
+            <div class="decision-header">
+                <span class="decision-title">🧠 最佳決策 (EV分析)</span>
+            </div>
+            <div class="decision-content" id="recommendation-list">
+                <div class="placeholder">請建立手牌開始分析...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 玩家操作區 (底部) -->
+    <div class="player-zone">
+        <!-- 手牌區 -->
+        <div class="hand-container">
+            <div class="hand-tiles" id="my-hand">
+                <!-- 手牌 -->
+            </div>
+            <div class="drawn-tile hidden" id="drawn-tile">
+                <!-- 摸到的牌 -->
+            </div>
+        </div>
+
+        <!-- 操作提示 -->
+        <div class="action-hint" id="action-hint">建立起始手牌 (4張)</div>
+
+        <!-- 鍵盤區 (輸入自己手牌) -->
+        <div class="keyboard-area" id="keyboard-area">
+            <div class="kb-row red-row">
+                <button class="kb-btn red" data-tile="帥">帥</button>
+                <button class="kb-btn red" data-tile="仕">仕</button>
+                <button class="kb-btn red" data-tile="相">相</button>
+                <button class="kb-btn red" data-tile="俥">俥</button>
+                <button class="kb-btn red" data-tile="傌">傌</button>
+                <button class="kb-btn red" data-tile="炮">炮</button>
+                <button class="kb-btn red" data-tile="兵">兵</button>
+            </div>
+            <div class="kb-row black-row">
+                <button class="kb-btn black" data-tile="將">將</button>
+                <button class="kb-btn black" data-tile="士">士</button>
+                <button class="kb-btn black" data-tile="象">象</button>
+                <button class="kb-btn black" data-tile="車">車</button>
+                <button class="kb-btn black" data-tile="馬">馬</button>
+                <button class="kb-btn black" data-tile="包">包</button>
+                <button class="kb-btn black" data-tile="卒">卒</button>
+            </div>
+        </div>
+
+        <!-- 功能按鈕 -->
+        <div class="controls">
+            <button class="ctrl-btn undo" id="undo-btn">↩️ 撤銷</button>
+            <button class="ctrl-btn action" id="draw-btn">🀄️ 我摸牌</button>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+
+</html>

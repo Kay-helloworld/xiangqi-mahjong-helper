@@ -1,0 +1,303 @@
+:root {
+    --bg-dark: #3e2723;
+    --bg-board: #eecfa1;
+    --text-red: #d32f2f;
+    --text-black: #212121;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    -webkit-tap-highlight-color: transparent;
+}
+
+body {
+    font-family: system-ui, -apple-system, "Microsoft JhengHei", serif;
+    background-color: var(--bg-dark);
+    color: white;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+header {
+    background: rgba(0, 0, 0, 0.3);
+    padding: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.header-title {
+    font-weight: bold;
+    font-size: 1.1rem;
+    color: #ffd700;
+}
+
+.icon-btn {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    color: white;
+}
+
+/* 殘牌計數器 */
+.counter-panel {
+    background: rgba(255, 255, 255, 0.05);
+    /* 半透明 */
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.counter-row {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 4px;
+}
+
+.counter-tile {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+}
+
+.tile-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: #fdf5e6;
+    font-family: "Noto Serif TC", serif;
+    font-weight: bold;
+    font-size: 1rem;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.2), 0 1px 2px rgba(0, 0, 0, 0.3);
+    border: 1px solid #d7ccc8;
+}
+
+.counter-num {
+    font-size: 0.75rem;
+    margin-top: 2px;
+    color: #ddd;
+}
+
+.tile-icon.red {
+    color: var(--text-red);
+    border-color: var(--text-red);
+}
+
+.tile-icon.black {
+    color: var(--text-black);
+    border-color: var(--text-black);
+}
+
+.counter-tile.zero {
+    opacity: 0.3;
+}
+
+.panel-hint {
+    font-size: 0.8rem;
+    text-align: center;
+    color: #aaa;
+    margin-top: 4px;
+}
+
+/* 遊戲主區 */
+.game-area {
+    flex: 1;
+    padding: 10px;
+    overflow-y: auto;
+}
+
+/* 建議面板 */
+.decision-panel {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 12px;
+    padding: 12px;
+}
+
+.decision-title {
+    color: #ffd700;
+    font-weight: bold;
+    margin-bottom: 8px;
+    display: block;
+}
+
+.decision-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px dashed rgba(255, 255, 255, 0.1);
+}
+
+.rec-target {
+    font-size: 1.1rem;
+    font-weight: bold;
+    font-family: "Noto Serif TC", serif;
+}
+
+.rec-tiles {
+    display: flex;
+    gap: 4px;
+}
+
+.rec-tile-s {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #fdf5e6;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 0.7rem;
+    box-shadow: 0 1px 1px rgba(0, 0, 0, 0.2);
+}
+
+.rec-stat {
+    font-size: 0.8rem;
+    color: #aaa;
+    text-align: right;
+}
+
+.rec-score {
+    color: #4caf50;
+    font-weight: bold;
+}
+
+/* 玩家操作區 */
+.player-zone {
+    background: #2d2d2d;
+    padding: 16px;
+    border-radius: 20px 20px 0 0;
+    box-shadow: 0 -4px 10px rgba(0, 0, 0, 0.4);
+}
+
+.hand-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 16px;
+    min-height: 56px;
+}
+
+.hand-tiles {
+    display: flex;
+    gap: 4px;
+}
+
+.game-tile {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: #fdf5e6;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-family: "Noto Serif TC", serif;
+    font-weight: bold;
+    font-size: 1.5rem;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3), inset 0 -3px 0 rgba(0, 0, 0, 0.1);
+    cursor: pointer;
+    transition: transform 0.1s;
+}
+
+.game-tile:active {
+    transform: translateY(2px);
+    box-shadow: none;
+}
+
+.game-tile.red {
+    color: var(--text-red);
+    border: 2px solid var(--text-red);
+}
+
+.game-tile.black {
+    color: var(--text-black);
+    border: 2px solid var(--text-black);
+}
+
+.drawn-tile {
+    margin-left: 10px;
+    border-left: 1px solid rgba(255, 255, 255, 0.2);
+    padding-left: 10px;
+}
+
+.drawn-tile.hidden {
+    display: none;
+}
+
+.action-hint {
+    text-align: center;
+    color: #aaa;
+    font-size: 0.9rem;
+    margin-bottom: 8px;
+}
+
+.controls {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.ctrl-btn {
+    padding: 12px;
+    border: none;
+    border-radius: 8px;
+    font-weight: bold;
+    font-size: 1rem;
+    color: white;
+}
+
+.ctrl-btn.undo {
+    background: #616161;
+    width: 30%;
+}
+
+.ctrl-btn.action {
+    background: #d32f2f;
+    flex: 1;
+}
+
+/* 鍵盤樣式 */
+.keyboard-area {
+    margin-bottom: 10px;
+}
+
+.kb-row {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 4px;
+}
+
+.kb-btn {
+    flex: 1;
+    height: 40px;
+    border-radius: 4px;
+    border: none;
+    background: #fdf5e6;
+    font-family: "Noto Serif TC", serif;
+    font-size: 1.1rem;
+    font-weight: bold;
+    box-shadow: 0 2px 0 #bbb;
+}
+
+.kb-btn:active {
+    transform: translateY(1px);
+    box-shadow: none;
+}
+
+.kb-btn.red {
+    color: var(--text-red);
+}
+
+.kb-btn.black {
+    color: var(--text-black);
+}
