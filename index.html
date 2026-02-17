@@ -112,26 +112,64 @@
         </div>
     </div>
 
-    <!-- 吃牌輸入彈窗 -->
-    <div id="meldModal" class="modal">
+    <!-- 牌局操作彈窗 (點擊河牌時觸發) -->
+    <div id="tileActionModal" class="modal">
         <div class="modal-content">
-            <h3>記錄吃牌</h3>
-            <div class="modal-step" id="step-player">
-                <p>誰吃了牌？</p>
-                <div class="player-select">
-                    <button class="p-btn" data-target="3">上家</button>
-                    <button class="p-btn" data-target="2">對家</button>
-                    <button class="p-btn" data-target="1">下家</button>
+            <h3 id="tile-action-title">這張牌怎麼了？</h3>
+            <div class="selected-tile-display" id="modal-tile-display">
+                <!-- JS 插入大圖 -->
+            </div>
+
+            <p class="modal-hint">選擇誰吃了這張牌：</p>
+            <div class="modal-actions-grid">
+                <button class="p-btn" onclick="onEatConfirm(3)">上家 吃</button>
+                <button class="p-btn" onclick="onEatConfirm(2)">對家 吃</button>
+                <button class="p-btn" onclick="onEatConfirm(1)">下家 吃</button>
+                <button class="p-btn self" onclick="onEatConfirm(0)">我 吃</button>
+            </div>
+
+            <div class="modal-footer">
+                <button class="cancel-btn" onclick="closeModals()">取消</button>
+                <button class="delete-btn" onclick="onDeleteTile()">🗑️ 刪除此牌</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 吃牌補充輸入彈窗 (選擇了誰吃之後) -->
+    <div id="meldInputModal" class="modal">
+        <div class="modal-content">
+            <h3>補充吃牌組合</h3>
+            <p class="modal-hint">他還亮出了哪兩張牌？</p>
+
+            <!-- 顯示目前的組合預覽 -->
+            <div class="meld-preview" id="meld-preview">
+                <!-- [吃進來的牌] [?] [?] -->
+            </div>
+
+            <!-- 鍵盤 -->
+            <div class="mini-keyboard">
+                <div class="kb-row red-row">
+                    <button class="kb-btn red" onclick="addMeldTile('帥')">帥</button>
+                    <button class="kb-btn red" onclick="addMeldTile('仕')">仕</button>
+                    <button class="kb-btn red" onclick="addMeldTile('相')">相</button>
+                    <button class="kb-btn red" onclick="addMeldTile('俥')">俥</button>
+                    <button class="kb-btn red" onclick="addMeldTile('傌')">傌</button>
+                    <button class="kb-btn red" onclick="addMeldTile('炮')">炮</button>
+                    <button class="kb-btn red" onclick="addMeldTile('兵')">兵</button>
+                </div>
+                <div class="kb-row black-row">
+                    <button class="kb-btn black" onclick="addMeldTile('將')">將</button>
+                    <button class="kb-btn black" onclick="addMeldTile('士')">士</button>
+                    <button class="kb-btn black" onclick="addMeldTile('象')">象</button>
+                    <button class="kb-btn black" onclick="addMeldTile('車')">車</button>
+                    <button class="kb-btn black" onclick="addMeldTile('馬')">馬</button>
+                    <button class="kb-btn black" onclick="addMeldTile('包')">包</button>
+                    <button class="kb-btn black" onclick="addMeldTile('卒')">卒</button>
                 </div>
             </div>
-            <div class="modal-step" id="step-tile">
-                <p>吃了什麼牌？</p>
-                <div class="mini-keyboard" id="meld-keyboard">
-                    <!-- JS 生成 -->
-                </div>
-            </div>
+
             <div class="modal-actions">
-                <button id="cancel-meld">取消</button>
+                <button id="meld-ok-btn" onclick="finishMeld()">確定</button>
             </div>
         </div>
     </div>
