@@ -1,4 +1,4 @@
-// 象棋麻將助手 - 四家戰情室版 (自動吃牌識別)
+// 象棋麻將助手 - 四家戰情室版 (簡化吃牌邏輯)
 
 const TILES = {
     R7: { name: '帥', count: 1, val: 7, type: 'red' },
@@ -23,7 +23,6 @@ const ID_MAP = {
 };
 const REV_MAP = Object.fromEntries(Object.entries(ID_MAP).map(([k, v]) => [v, k]));
 
-// Player Names
 const PLAYER_NAMES = ['我', '下家', '對家', '上家'];
 
 let gameState = {
@@ -31,7 +30,8 @@ let gameState = {
     myHand: [],
     drawnTile: null,
     rivers: [[], [], [], []],
-    melds: [[], [], [], []],
+    melds: [[], [], [], []], // [ { type:'eat', tiles:['R1'] } ] - 只存一張
+
     mode: 'hand',
     selectedPlayer: 3,
     history: []
@@ -55,6 +55,7 @@ function undo() {
     const prev = gameState.history.pop();
     Object.assign(gameState, prev);
     render();
+    closeModals();
 }
 
 function init() {
@@ -76,9 +77,8 @@ function inputTile(char) {
     const id = ID_MAP[char];
     if (!id) return;
 
-    // 如果 Modal 開啟，這就是輸入吃牌補充
+    // 如果 Modal 開啟，不再響應輸入（因為不需要補充牌了）
     if (document.getElementById('meldInputModal').classList.contains('show')) {
-        addMeldTile(char);
         return;
     }
 
@@ -136,21 +136,17 @@ function sortHand() {
 function onRiverClick(pIdx, tIdx, id) {
     tempAction = { sourceP: pIdx, sourceTIdx: tIdx, tileId: id };
 
-    // Auto detect eater (Logic: eater follows sourceP)
-    // 3(Left) -> 0(Me)
-    // 2(Top) -> 3(Left)
-    // 1(Right) -> 2(Top)
-    // 0(Me) -> 1(Right)
+    // Auto detect eater: (pIdx + 1) % 4
     const eaterIdx = (pIdx + 1) % 4;
 
     tempMeld = {
         eater: eaterIdx,
-        tiles: [id]
+        tiles: [id] // 只包括這張牌
     };
 
     // Setup Modal
     const eaterName = PLAYER_NAMES[eaterIdx];
-    document.getElementById('meld-title').textContent = `${eaterName} 吃 ${REV_MAP[id]}`;
+    document.getElementById('meld-title').textContent = `${eaterName} 吃 ${REV_MAP[id]}?`;
 
     updateMeldPreview();
     document.getElementById('meldInputModal').classList.add('show');
@@ -162,29 +158,18 @@ function closeModals() {
     tempMeld = null;
 }
 
-function addMeldTile(char) {
-    if (!tempMeld) return;
-    if (tempMeld.tiles.length >= 3) return;
-    const id = ID_MAP[char];
-    tempMeld.tiles.push(id);
-    updateMeldPreview();
-}
-
 function updateMeldPreview() {
     const container = document.getElementById('meld-preview');
-    container.innerHTML = tempMeld.tiles.map(id => createTile(id, 'small')).join('');
-    // Placeholder
-    for (let i = tempMeld.tiles.length; i < 3; i++) {
-        container.innerHTML += `<div class="game-tile small" style="border:1px dashed #777; background:none; color:#777">?</div>`;
-    }
+    // 只顯示一張
+    container.innerHTML = tempMeld.tiles.map(id => createTile(id, 'normal')).join('');
 }
 
 function onDeleteTile() {
     if (!tempAction) return;
     pushHistory();
-    // 刪除該河牌 (視為誤操作)
+    // 刪除該河牌
     gameState.rivers[tempAction.sourceP].splice(tempAction.sourceTIdx, 1);
-    // 補回 wallCount? 假設誤操作是之前 inputTile 扣過的
+
     gameState.wallCount++;
 
     closeModals();
@@ -193,71 +178,59 @@ function onDeleteTile() {
 
 function finishMeld() {
     if (!tempMeld || !tempAction) return;
-    // 必須滿3張
-    if (tempMeld.tiles.length < 3) {
-        alert('吃牌必須滿3張');
-        return;
-    }
 
     pushHistory();
 
     // 1. Remove eaten tile from source river
     gameState.rivers[tempAction.sourceP].splice(tempAction.sourceTIdx, 1);
 
-    // 2. Add to eater's Melds
+    // 2. Add to eater's Melds (Record keeping)
     gameState.melds[tempMeld.eater].push({
         type: 'eat',
-        tiles: tempMeld.tiles,
+        tiles: tempMeld.tiles, // [id]
         from: tempAction.sourceP
     });
 
-    // 3. Update Wall Count
-    // 只有補進來的2張是從未知變已知
-    const extraTilesCount = tempMeld.tiles.length - 1;
-    gameState.wallCount -= extraTilesCount;
-    if (gameState.wallCount < 0) gameState.wallCount = 0;
+    // 3. 如果是我吃，還要真正加到手牌裡
+    if (tempMeld.eater === 0) {
+        // 先檢查手牌上限？理論上吃牌只能在輪到自己摸牌前（也就是手牌4張時）發生
+        // 吃牌後手牌變成 5 張
+        if (gameState.drawnTile) {
+            // 這是不應該發生的，除非記錄有錯
+            // 但為了強健性，我們假設這是剛摸到的牌
+            // 不處理，直接加
+        }
+        // 將這張牌加入手牌 (視為 drawnTile 比較好，因為要打出一張)
+        // 或者直接 push 到 hand，反正 discardMe 會處理
+        // 為了 UI 邏輯一致（需要打出一張），我們把它設為 `drawnTile`
+        if (gameState.myHand.length === 4) {
+            gameState.drawnTile = tempMeld.tiles[0];
+        } else {
+            gameState.myHand.push(tempMeld.tiles[0]); // 一般補牌
+            sortHand();
+        }
+    }
+
+    // 4. Update Wall Count -> 不變！
+    // 吃牌是撿河裡的，不消耗牆牌
 
     closeModals();
     render();
 }
 
 // --- Render & Analysis ---
-
-function getRemaining(id) {
-    let count = TILES[id].count;
-    // ... logic same as before ...
-    // 手牌
-    gameState.myHand.forEach(t => { if (t === id) count--; });
-    if (gameState.drawnTile === id) count--;
-    // Rivers
-    gameState.rivers.forEach(r => r.forEach(t => { if (t === id) count--; }));
-    // Melds
-    gameState.melds.forEach(mList => mList.forEach(m => {
-        m.tiles.forEach(t => { if (t === id) count--; });
-    }));
-    return count;
-}
-
 function analyze() {
-    // 1. Defense (Show Safe Tiles: Rivers + Melds' eaten tile?)
-    // 其實只有現物絕對安全。吃進去的牌已經不在河裡，但它曾經被打出過。
-    // 但是象棋麻將的「現物」定義是「該玩家打過的牌」。
-    // 這裡我們列出所有已見牌做為參考？不，只列出絕對安全牌。
-    // 安全牌 = 所有人打過的牌 (即便被吃走，只要打出過就算現物嗎？這要看規則。通常算！)
-
+    // Defense: Show safe tiles (Rivers + Eaten Tiles?)
+    // 對手吃進去的牌，也是現物的一種（因為曾經被打出過，大家都知道這張牌被消耗了）
     const defenseEl = document.getElementById('rec-defense');
     let safeTiles = new Set();
 
-    // 如果被吃走，它還算是某人的捨牌嗎？
-    // 記錄歷史裡我們把 rivers splice 掉了。這會導致「現物」消失。
-    // 這是一個潛在bug。
-    // 如果想要保留現物記錄，我們也許不該 splice，而是標記 `eaten: true`?
-    // 或者我們假設因為被吃走，下家立刻打了一張，那張就變成新的現物。
-    // 被吃的那張因為不在河裡，所以也不能跟打？
-    // 通常規則：上家打的被吃，那張就不是「過水」對象，因為沒過。
-    // 所以 splice 是對的。
-
     gameState.rivers.forEach(r => r.forEach(t => safeTiles.add(t)));
+
+    // Eaten tiles are also visible/known used
+    gameState.melds.forEach(mList => mList.forEach(m => {
+        m.tiles.forEach(t => safeTiles.add(t));
+    }));
 
     if (safeTiles.size === 0) {
         defenseEl.innerHTML = '<div class="placeholder-text">無現物</div>';
@@ -269,8 +242,23 @@ function analyze() {
         defenseEl.innerHTML = html;
     }
 
-    // 2. Offense Placeholder
+    // Offense
     document.getElementById('rec-offense').innerHTML = '<div class="placeholder-text">分析功能開發中...</div>';
+}
+
+function getRemaining(id) {
+    // 這裡我們只計算「絕對已知」的牌
+    let count = TILES[id].count;
+    // Hand
+    gameState.myHand.forEach(t => { if (t === id) count--; });
+    if (gameState.drawnTile === id) count--;
+    // Rivers
+    gameState.rivers.forEach(r => r.forEach(t => { if (t === id) count--; }));
+    // Melds (所有 meld 裡的牌都是已知的)
+    gameState.melds.forEach(mList => mList.forEach(m => {
+        m.tiles.forEach(t => { if (t === id) count--; });
+    }));
+    return count;
 }
 
 
@@ -289,9 +277,10 @@ function render() {
             rEl.appendChild(div);
         });
 
-        // Melds
+        // Melds - 只顯示單張被吃進來的
         const mEl = document.getElementById(`melds-${i}`);
         mEl.innerHTML = gameState.melds[i].map(m => {
+            // m.tiles 只有一張
             return `<div class="meld-group">${m.tiles.map(id => createTile(id, 'tiny')).join('')}</div>`;
         }).join('');
 
@@ -359,12 +348,12 @@ function attachEvents() {
 }
 
 init();
-// Global exports for inline HTML calls
+// Exports
 window.inputTile = inputTile;
 window.discardMe = discardMe;
-window.onRiverClick = onRiverClick; // used in JS render mainly
+window.onRiverClick = onRiverClick;
 window.onDeleteTile = onDeleteTile;
-window.addMeldTile = addMeldTile;
+// window.addMeldTile = addMeldTile; // No longer needed
 window.finishMeld = finishMeld;
 window.undo = undo;
 window.closeModals = closeModals;
