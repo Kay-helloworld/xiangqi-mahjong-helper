@@ -78,7 +78,6 @@ function init() {
         history: []
     };
     render();
-    attachEvents();
 }
 
 function inputTile(char) {
