@@ -11,82 +11,128 @@
 </head>
 
 <body>
-    <header class="game-header">
-        <div class="header-left">
+    <div class="mahjong-table">
+        <!-- 頂部資訊 -->
+        <header class="table-header">
             <div class="info-badge">剩餘: <span id="wall-count" class="highlight">32</span></div>
-        </div>
-        <div class="header-title">象棋麻將</div>
-        <div class="header-right">
             <button class="icon-btn" id="reset-btn">🔄</button>
-        </div>
-    </header>
+        </header>
 
-    <!-- 殘牌計數器 (Tile Counter) -->
-    <!-- 這也是用來輸入對手打牌的鍵盤 -->
-    <div class="counter-panel" id="tile-counter">
-        <div class="counter-row red-row" id="counter-red">
-            <!-- JS 生成: 帥仕相俥傌炮兵 -->
-        </div>
-        <div class="counter-row black-row" id="counter-black">
-            <!-- JS 生成: 將士象車馬包卒 -->
-        </div>
-        <div class="panel-hint">點擊上方棋子 = 記錄對手打出的牌</div>
-    </div>
+        <!-- 對手區域 (上/對/下) -->
+        <div class="opponents-area">
+            <!-- 上家 (左) -->
+            <div class="opponent left" id="player-3">
+                <div class="avatar">上家</div>
+                <div class="river" id="river-3"></div>
+                <div class="melds" id="melds-3"></div>
+            </div>
 
-    <!-- 遊戲主區域 -->
-    <div class="game-area">
-        <!-- 建議面板 -->
-        <div class="decision-panel">
-            <div class="decision-header">
-                <span class="decision-title">🧠 最佳決策 (EV分析)</span>
+            <!-- 對家 (中) -->
+            <div class="opponent top" id="player-2">
+                <div class="avatar">對家</div>
+                <div class="river" id="river-2"></div>
+                <div class="melds" id="melds-2"></div>
             </div>
-            <div class="decision-content" id="recommendation-list">
-                <div class="placeholder">請建立手牌開始分析...</div>
+
+            <!-- 下家 (右) -->
+            <div class="opponent right" id="player-1">
+                <div class="avatar">下家</div>
+                <div class="river" id="river-1"></div>
+                <div class="melds" id="melds-1"></div>
             </div>
         </div>
-    </div>
 
-    <!-- 玩家操作區 (底部) -->
-    <div class="player-zone">
-        <!-- 手牌區 -->
-        <div class="hand-container">
-            <div class="hand-tiles" id="my-hand">
-                <!-- 手牌 -->
+        <!-- 決策建議 HUD -->
+        <div class="decision-hud">
+            <!-- 防守建議 -->
+            <div class="hud-panel defense">
+                <div class="hud-title">🛡️ 防守 (現物/危險)</div>
+                <div class="hud-content" id="rec-defense">
+                    <div class="placeholder-text">觀察場上...</div>
+                </div>
             </div>
-            <div class="drawn-tile hidden" id="drawn-tile">
+
+            <!-- 進攻建議 -->
+            <div class="hud-panel offense">
+                <div class="hud-title">⚔️ 進攻 (EV分析)</div>
+                <div class="hud-content" id="rec-offense">
+                    <div class="placeholder-text">請建立手牌...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 玩家區域 (底部) -->
+        <div class="player-zone">
+            <!-- 自己的河/吃牌 -->
+            <div class="player-info">
+                <div class="river self" id="river-0"></div>
+                <div class="melds self" id="melds-0"></div>
+            </div>
+
+            <!-- 操作提示 -->
+            <div class="action-hint" id="action-hint">請建立起始手牌 (4張)</div>
+
+            <!-- 手牌區 -->
+            <div class="hand-container">
+                <div class="hand-tiles" id="my-hand">
+                    <!-- 手牌 JS 生成 -->
+                </div>
                 <!-- 摸到的牌 -->
+                <div class="drawn-tile hidden" id="drawn-tile"></div>
+            </div>
+
+            <!-- 鍵盤區 (雙層) -->
+            <div class="keyboard-area">
+                <div class="kb-row red-row">
+                    <button class="kb-btn red" data-tile="帥">帥</button>
+                    <button class="kb-btn red" data-tile="仕">仕</button>
+                    <button class="kb-btn red" data-tile="相">相</button>
+                    <button class="kb-btn red" data-tile="俥">俥</button>
+                    <button class="kb-btn red" data-tile="傌">傌</button>
+                    <button class="kb-btn red" data-tile="炮">炮</button>
+                    <button class="kb-btn red" data-tile="兵">兵</button>
+                </div>
+                <div class="kb-row black-row">
+                    <button class="kb-btn black" data-tile="將">將</button>
+                    <button class="kb-btn black" data-tile="士">士</button>
+                    <button class="kb-btn black" data-tile="象">象</button>
+                    <button class="kb-btn black" data-tile="車">車</button>
+                    <button class="kb-btn black" data-tile="馬">馬</button>
+                    <button class="kb-btn black" data-tile="包">包</button>
+                    <button class="kb-btn black" data-tile="卒">卒</button>
+                </div>
+            </div>
+
+            <!-- 功能按鈕 -->
+            <div class="controls">
+                <button class="ctrl-btn undo" id="undo-btn">↩️ 撤銷</button>
+                <button class="ctrl-btn action" id="meld-btn">🥢 吃牌記錄</button>
+                <button class="ctrl-btn draw" id="draw-btn">🀄️ 我摸牌</button>
             </div>
         </div>
+    </div>
 
-        <!-- 操作提示 -->
-        <div class="action-hint" id="action-hint">建立起始手牌 (4張)</div>
-
-        <!-- 鍵盤區 (輸入自己手牌) -->
-        <div class="keyboard-area" id="keyboard-area">
-            <div class="kb-row red-row">
-                <button class="kb-btn red" data-tile="帥">帥</button>
-                <button class="kb-btn red" data-tile="仕">仕</button>
-                <button class="kb-btn red" data-tile="相">相</button>
-                <button class="kb-btn red" data-tile="俥">俥</button>
-                <button class="kb-btn red" data-tile="傌">傌</button>
-                <button class="kb-btn red" data-tile="炮">炮</button>
-                <button class="kb-btn red" data-tile="兵">兵</button>
+    <!-- 吃牌輸入彈窗 -->
+    <div id="meldModal" class="modal">
+        <div class="modal-content">
+            <h3>記錄吃牌</h3>
+            <div class="modal-step" id="step-player">
+                <p>誰吃了牌？</p>
+                <div class="player-select">
+                    <button class="p-btn" data-target="3">上家</button>
+                    <button class="p-btn" data-target="2">對家</button>
+                    <button class="p-btn" data-target="1">下家</button>
+                </div>
             </div>
-            <div class="kb-row black-row">
-                <button class="kb-btn black" data-tile="將">將</button>
-                <button class="kb-btn black" data-tile="士">士</button>
-                <button class="kb-btn black" data-tile="象">象</button>
-                <button class="kb-btn black" data-tile="車">車</button>
-                <button class="kb-btn black" data-tile="馬">馬</button>
-                <button class="kb-btn black" data-tile="包">包</button>
-                <button class="kb-btn black" data-tile="卒">卒</button>
+            <div class="modal-step" id="step-tile">
+                <p>吃了什麼牌？</p>
+                <div class="mini-keyboard" id="meld-keyboard">
+                    <!-- JS 生成 -->
+                </div>
             </div>
-        </div>
-
-        <!-- 功能按鈕 -->
-        <div class="controls">
-            <button class="ctrl-btn undo" id="undo-btn">↩️ 撤銷</button>
-            <button class="ctrl-btn action" id="draw-btn">🀄️ 我摸牌</button>
+            <div class="modal-actions">
+                <button id="cancel-meld">取消</button>
+            </div>
         </div>
     </div>
 

@@ -1,232 +1,219 @@
+/* 象棋麻將 - 戰情室風格 (Dark Theme) */
 :root {
-    --bg-dark: #3e2723;
-    --bg-board: #eecfa1;
+    --bg-dark: #263238;
+    /* Blue Grey 900 */
+    --bg-panel: rgba(0, 0, 0, 0.3);
     --text-red: #d32f2f;
     --text-black: #212121;
+    --tile-bg: #fdf5e6;
+    --highlight: #ffd700;
 }
 
 * {
     box-sizing: border-box;
-    margin: 0;
-    padding: 0;
     -webkit-tap-highlight-color: transparent;
 }
 
 body {
-    font-family: system-ui, -apple-system, "Microsoft JhengHei", serif;
-    background-color: var(--bg-dark);
-    color: white;
+    font-family: system-ui, -apple-system, sans-serif;
+    background: var(--bg-dark);
+    color: #eee;
+    margin: 0;
     height: 100vh;
     display: flex;
     flex-direction: column;
     overflow: hidden;
 }
 
-header {
-    background: rgba(0, 0, 0, 0.3);
-    padding: 10px;
+/* Header */
+.table-header {
+    padding: 8px 16px;
+    background: rgba(0, 0, 0, 0.4);
     display: flex;
     justify-content: space-between;
     align-items: center;
 }
 
-.header-title {
+.highlight {
+    color: var(--highlight);
     font-weight: bold;
-    font-size: 1.1rem;
-    color: #ffd700;
 }
 
 .icon-btn {
     background: none;
     border: none;
     font-size: 1.5rem;
-    color: white;
+    color: #fff;
 }
 
-/* 殘牌計數器 */
-.counter-panel {
-    background: rgba(255, 255, 255, 0.05);
-    /* 半透明 */
-    padding: 10px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-
-.counter-row {
+/* Opponents Area */
+.opponents-area {
+    flex: 1;
     display: grid;
-    grid-template-columns: repeat(7, 1fr);
-    gap: 4px;
+    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-rows: auto auto;
+    gap: 8px;
+    padding: 8px;
 }
 
-.counter-tile {
+.opponent {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 4px;
     display: flex;
     flex-direction: column;
-    align-items: center;
-    position: relative;
+    cursor: pointer;
+    transition: all 0.2s;
 }
 
-.tile-icon {
-    width: 32px;
-    height: 32px;
+.opponent.selected {
+    border: 2px solid var(--highlight);
+    background: rgba(255, 215, 0, 0.1);
+    box-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
+}
+
+.opponent.top {
+    grid-column: 2;
+    grid-row: 1;
+}
+
+.opponent.left {
+    grid-column: 1;
+    grid-row: 2;
+}
+
+.opponent.right {
+    grid-column: 3;
+    grid-row: 2;
+}
+
+.avatar {
+    font-size: 0.8rem;
+    opacity: 0.7;
+    text-align: center;
+    margin-bottom: 4px;
+}
+
+/* Rivers & Melds */
+.river {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px;
+    min-height: 24px;
+}
+
+.melds {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 4px;
+    border-top: 1px dashed rgba(255, 255, 255, 0.1);
+    padding-top: 4px;
+}
+
+/* Tiles */
+.game-tile {
     border-radius: 50%;
-    background: #fdf5e6;
-    font-family: "Noto Serif TC", serif;
-    font-weight: bold;
-    font-size: 1rem;
+    background: var(--tile-bg);
     display: flex;
     justify-content: center;
     align-items: center;
-    box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.2), 0 1px 2px rgba(0, 0, 0, 0.3);
-    border: 1px solid #d7ccc8;
+    font-weight: bold;
+    box-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+    font-family: serif;
+    user-select: none;
 }
 
-.counter-num {
-    font-size: 0.75rem;
-    margin-top: 2px;
-    color: #ddd;
-}
-
-.tile-icon.red {
+.game-tile.red {
     color: var(--text-red);
-    border-color: var(--text-red);
+    border: 1px solid #e57373;
 }
 
-.tile-icon.black {
+.game-tile.black {
     color: var(--text-black);
-    border-color: var(--text-black);
+    border: 1px solid #9e9e9e;
 }
 
-.counter-tile.zero {
-    opacity: 0.3;
+.game-tile.small {
+    width: 24px;
+    height: 24px;
+    font-size: 0.9rem;
 }
 
-.panel-hint {
-    font-size: 0.8rem;
-    text-align: center;
-    color: #aaa;
-    margin-top: 4px;
+.game-tile.tiny {
+    width: 18px;
+    height: 18px;
+    font-size: 0.7rem;
 }
 
-/* 遊戲主區 */
-.game-area {
+/* For melds */
+.game-tile.normal {
+    width: 44px;
+    height: 44px;
+    font-size: 1.4rem;
+    box-shadow: 0 3px 5px rgba(0, 0, 0, 0.3);
+    cursor: pointer;
+}
+
+/* HUD */
+.decision-hud {
+    display: flex;
+    gap: 8px;
+    padding: 0 8px;
+    height: 80px;
+}
+
+.hud-panel {
     flex: 1;
-    padding: 10px;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 8px;
+    padding: 6px;
     overflow-y: auto;
 }
 
-/* 建議面板 */
-.decision-panel {
-    background: rgba(0, 0, 0, 0.2);
-    border-radius: 12px;
-    padding: 12px;
+.hud-title {
+    font-size: 0.8rem;
+    color: var(--highlight);
+    margin-bottom: 4px;
 }
 
-.decision-title {
-    color: #ffd700;
-    font-weight: bold;
-    margin-bottom: 8px;
-    display: block;
-}
-
-.decision-item {
+.hud-content {
+    font-size: 0.8rem;
     display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 8px 0;
-    border-bottom: 1px dashed rgba(255, 255, 255, 0.1);
-}
-
-.rec-target {
-    font-size: 1.1rem;
-    font-weight: bold;
-    font-family: "Noto Serif TC", serif;
-}
-
-.rec-tiles {
-    display: flex;
+    flex-wrap: wrap;
     gap: 4px;
 }
 
-.rec-tile-s {
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    background: #fdf5e6;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    font-size: 0.7rem;
-    box-shadow: 0 1px 1px rgba(0, 0, 0, 0.2);
-}
-
-.rec-stat {
-    font-size: 0.8rem;
-    color: #aaa;
-    text-align: right;
-}
-
-.rec-score {
-    color: #4caf50;
-    font-weight: bold;
-}
-
-/* 玩家操作區 */
+/* Player Zone */
 .player-zone {
-    background: #2d2d2d;
-    padding: 16px;
-    border-radius: 20px 20px 0 0;
-    box-shadow: 0 -4px 10px rgba(0, 0, 0, 0.4);
+    background: #1b2528;
+    padding: 8px;
+    border-top: 1px solid #333;
+}
+
+.player-info {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+
+.river.self {
+    flex: 1;
+    justify-content: flex-end;
 }
 
 .hand-container {
     display: flex;
     justify-content: center;
-    align-items: center;
-    gap: 16px;
-    margin-bottom: 16px;
-    min-height: 56px;
-}
-
-.hand-tiles {
-    display: flex;
-    gap: 4px;
-}
-
-.game-tile {
-    width: 48px;
-    height: 48px;
-    border-radius: 50%;
-    background: #fdf5e6;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    font-family: "Noto Serif TC", serif;
-    font-weight: bold;
-    font-size: 1.5rem;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3), inset 0 -3px 0 rgba(0, 0, 0, 0.1);
-    cursor: pointer;
-    transition: transform 0.1s;
-}
-
-.game-tile:active {
-    transform: translateY(2px);
-    box-shadow: none;
-}
-
-.game-tile.red {
-    color: var(--text-red);
-    border: 2px solid var(--text-red);
-}
-
-.game-tile.black {
-    color: var(--text-black);
-    border: 2px solid var(--text-black);
+    gap: 12px;
+    margin-bottom: 8px;
+    min-height: 50px;
 }
 
 .drawn-tile {
     margin-left: 10px;
-    border-left: 1px solid rgba(255, 255, 255, 0.2);
+    border-left: 1px solid #444;
     padding-left: 10px;
 }
 
@@ -237,38 +224,13 @@ header {
 .action-hint {
     text-align: center;
     color: #aaa;
-    font-size: 0.9rem;
-    margin-bottom: 8px;
+    font-size: 0.8rem;
+    margin-bottom: 4px;
 }
 
-.controls {
-    display: flex;
-    gap: 8px;
-    margin-top: 10px;
-}
-
-.ctrl-btn {
-    padding: 12px;
-    border: none;
-    border-radius: 8px;
-    font-weight: bold;
-    font-size: 1rem;
-    color: white;
-}
-
-.ctrl-btn.undo {
-    background: #616161;
-    width: 30%;
-}
-
-.ctrl-btn.action {
-    background: #d32f2f;
-    flex: 1;
-}
-
-/* 鍵盤樣式 */
+/* Keyboard */
 .keyboard-area {
-    margin-bottom: 10px;
+    margin-bottom: 8px;
 }
 
 .kb-row {
@@ -279,13 +241,13 @@ header {
 
 .kb-btn {
     flex: 1;
-    height: 40px;
+    height: 36px;
     border-radius: 4px;
     border: none;
-    background: #fdf5e6;
-    font-family: "Noto Serif TC", serif;
-    font-size: 1.1rem;
+    background: var(--tile-bg);
     font-weight: bold;
+    font-size: 1rem;
+    font-family: serif;
     box-shadow: 0 2px 0 #bbb;
 }
 
@@ -300,4 +262,59 @@ header {
 
 .kb-btn.black {
     color: var(--text-black);
+}
+
+/* Controls */
+.controls {
+    display: flex;
+    gap: 8px;
+}
+
+.ctrl-btn {
+    padding: 8px;
+    border: none;
+    border-radius: 6px;
+    font-weight: bold;
+    color: white;
+    flex: 1;
+}
+
+.undo {
+    background: #546e7a;
+}
+
+.action {
+    background: #00897b;
+}
+
+/* Teal */
+.draw {
+    background: #d32f2f;
+    flex: 1.5;
+}
+
+/* Modal */
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.6);
+    justify-content: center;
+    align-items: center;
+    z-index: 99;
+}
+
+.modal.show {
+    display: flex;
+}
+
+.modal-content {
+    background: #37474f;
+    padding: 16px;
+    border-radius: 12px;
+    width: 80%;
+    color: #fff;
 }
