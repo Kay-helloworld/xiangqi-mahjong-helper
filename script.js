@@ -218,32 +218,156 @@ function finishMeld() {
     render();
 }
 
-// --- Render & Analysis ---
+// --- 核心 AI 邏輯 ---
+
+const MELDS = [
+    ['R7', 'R6', 'R5'], // 帥仕相
+    ['B7', 'B6', 'B5'], // 將士象
+    ['R4', 'R3', 'R2'], // 俥傌炮
+    ['B4', 'B3', 'B2']  // 車馬包
+];
+
+function checkHu(tiles) {
+    if (tiles.length !== 5) return false;
+
+    // 1. 五兵/五卒判定
+    const counts = {};
+    tiles.forEach(t => counts[t] = (counts[t] || 0) + 1);
+    if (counts['R1'] === 5 || counts['B1'] === 5) return { type: 'five_pawns', score: 50 };
+
+    // 2. 3+2 結構判定
+    // 遍歷所有可能的將 (對子)
+    const uniqueTiles = Object.keys(counts);
+    for (let pairTile of uniqueTiles) {
+        if (counts[pairTile] >= 2) {
+            // 剩下的 3 張牌必須組成一組面子 (順子或刻子)
+            let remaining = [...tiles];
+            // 移除對子
+            remaining.splice(remaining.indexOf(pairTile), 1);
+            remaining.splice(remaining.indexOf(pairTile), 1);
+
+            if (isMeld(remaining)) {
+                return { type: 'normal', score: calculateScore(tiles) };
+            }
+        }
+    }
+    return false;
+}
+
+function isMeld(tiles) {
+    if (tiles.length !== 3) return false;
+    tiles.sort();
+
+    // 刻子判定
+    if (tiles[0] === tiles[1] && tiles[1] === tiles[2]) return true;
+
+    // 順子判定
+    for (let meld of MELDS) {
+        let tempMeld = [...meld].sort();
+        if (tiles[0] === tempMeld[0] && tiles[1] === tempMeld[1] && tiles[2] === tempMeld[2]) return true;
+    }
+
+    // 特殊：兵兵兵/卒卒卒 也是刻子，上面的刻子判定已涵蓋
+    return false;
+}
+
+function calculateScore(tiles) {
+    const isRed = tiles.every(t => t.startsWith('R'));
+    const isBlack = tiles.every(t => t.startsWith('B'));
+    if (isRed || isBlack) return 20; // 清一色
+    return 10; // 混色
+}
+
+// --- 分析 & UI ---
+
 function analyze() {
-    // Defense: Show safe tiles (Rivers + Eaten Tiles?)
-    // 對手吃進去的牌，也是現物的一種（因為曾經被打出過，大家都知道這張牌被消耗了）
     const defenseEl = document.getElementById('rec-defense');
+    const offenseEl = document.getElementById('rec-offense');
+
+    // 1. 防守分析
     let safeTiles = new Set();
-
     gameState.rivers.forEach(r => r.forEach(t => safeTiles.add(t)));
-
-    // Eaten tiles are also visible/known used
-    gameState.melds.forEach(mList => mList.forEach(m => {
-        m.tiles.forEach(t => safeTiles.add(t));
-    }));
+    gameState.melds.forEach(mList => mList.forEach(m => m.tiles.forEach(t => safeTiles.add(t))));
 
     if (safeTiles.size === 0) {
         defenseEl.innerHTML = '<div class="placeholder-text">無現物</div>';
     } else {
-        let html = '';
-        Array.from(safeTiles).forEach(id => {
-            html += createTile(id, 'tiny');
-        });
-        defenseEl.innerHTML = html;
+        defenseEl.innerHTML = Array.from(safeTiles).map(id => createTile(id, 'tiny')).join('');
     }
 
-    // Offense
-    document.getElementById('rec-offense').innerHTML = '<div class="placeholder-text">分析功能開發中...</div>';
+    // 2. 進攻分析 (EV)
+    if (gameState.myHand.length < 4) {
+        offenseEl.innerHTML = '<div class="placeholder-text">先輸入 4 張手牌</div>';
+        return;
+    }
+
+    const currentHand = [...gameState.myHand];
+    if (gameState.drawnTile) currentHand.push(gameState.drawnTile);
+
+    // 如果目前手牌已經胡了
+    if (currentHand.length === 5) {
+        const hu = checkHu(currentHand);
+        if (hu) {
+            offenseEl.innerHTML = `<div style="color:#ffeb3b; font-weight:bold;">✨ 已胡牌: ${hu.score}分 (${hu.type === 'five_pawns' ? '五兵/卒' : '3+2'})</div>`;
+            return;
+        }
+    }
+
+    // 計算打哪張牌 EV 最高
+    // 如果只有 4 張，計算摸哪張牌 EV 最高 (進牌點)
+    if (currentHand.length === 4) {
+        const waiting = getWaitingTiles(currentHand);
+        if (waiting.length === 0) {
+            offenseEl.innerHTML = '<div class="placeholder-text">目前沒聽牌</div>';
+        } else {
+            let html = '<div class="ev-list">';
+            waiting.sort((a, b) => b.ev - a.ev);
+            waiting.forEach(w => {
+                html += `<div class="ev-item">${createTile(w.id, 'tiny')} x ${w.count}張 (EV: ${w.ev.toFixed(1)})</div>`;
+            });
+            html += '</div>';
+            offenseEl.innerHTML = html;
+        }
+    } else {
+        // 有 5 張牌，分析打哪張好
+        let discards = [];
+        const uniqueInHand = [...new Set(currentHand)];
+
+        uniqueInHand.forEach(tileToDiscard => {
+            let tempHand = [...currentHand];
+            tempHand.splice(tempHand.indexOf(tileToDiscard), 1);
+            const waiting = getWaitingTiles(tempHand);
+            const totalEV = waiting.reduce((sum, w) => sum + w.ev, 0);
+            discards.push({ id: tileToDiscard, ev: totalEV, waitingCount: waiting.reduce((sum, w) => sum + w.count, 0) });
+        });
+
+        discards.sort((a, b) => b.ev - a.ev);
+        let html = '<div class="ev-list">';
+        discards.forEach(d => {
+            html += `<div class="ev-item">打 ${REV_MAP[d.id]} -> 聽 ${d.waitingCount}張 (EV: ${d.ev.toFixed(1)})</div>`;
+        });
+        html += '</div>';
+        offenseEl.innerHTML = html;
+    }
+}
+
+function getWaitingTiles(fourTiles) {
+    let waiting = [];
+    const allPossibleIds = Object.keys(TILES);
+    const wallLeft = Math.max(1, gameState.wallCount);
+
+    allPossibleIds.forEach(id => {
+        const count = getRemaining(id);
+        if (count > 0) {
+            const hu = checkHu([...fourTiles, id]);
+            if (hu) {
+                // EV = (該牌張數 / 剩餘總牌數) * 分數
+                // 這裡簡化為 該牌張數 * 分數，最後再考慮比例或直接顯示
+                waiting.push({ id, count, score: hu.score, ev: (count / wallLeft) * hu.score });
+            }
+        }
+    });
+    return waiting;
 }
 
 function getRemaining(id) {
