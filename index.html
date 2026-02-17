@@ -106,45 +106,22 @@
             <!-- 功能按鈕 -->
             <div class="controls">
                 <button class="ctrl-btn undo" id="undo-btn">↩️ 撤銷</button>
-                <button class="ctrl-btn action" id="meld-btn">🥢 吃牌記錄</button>
                 <button class="ctrl-btn draw" id="draw-btn">🀄️ 我摸牌</button>
             </div>
         </div>
     </div>
 
-    <!-- 牌局操作彈窗 (點擊河牌時觸發) -->
-    <div id="tileActionModal" class="modal">
-        <div class="modal-content">
-            <h3 id="tile-action-title">這張牌怎麼了？</h3>
-            <div class="selected-tile-display" id="modal-tile-display">
-                <!-- JS 插入大圖 -->
-            </div>
-
-            <p class="modal-hint">選擇誰吃了這張牌：</p>
-            <div class="modal-actions-grid">
-                <button class="p-btn" onclick="onEatConfirm(3)">上家 吃</button>
-                <button class="p-btn" onclick="onEatConfirm(2)">對家 吃</button>
-                <button class="p-btn" onclick="onEatConfirm(1)">下家 吃</button>
-                <button class="p-btn self" onclick="onEatConfirm(0)">我 吃</button>
-            </div>
-
-            <div class="modal-footer">
-                <button class="cancel-btn" onclick="closeModals()">取消</button>
-                <button class="delete-btn" onclick="onDeleteTile()">🗑️ 刪除此牌</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- 吃牌補充輸入彈窗 (選擇了誰吃之後) -->
+    <!-- 唯一彈窗: 吃牌記錄/刪除 -->
     <div id="meldInputModal" class="modal">
         <div class="modal-content">
-            <h3>補充吃牌組合</h3>
-            <p class="modal-hint">他還亮出了哪兩張牌？</p>
+            <h3 id="meld-title">吃牌記錄(自動識別)</h3>
 
-            <!-- 顯示目前的組合預覽 -->
+            <!-- 顯示吃+補 -->
             <div class="meld-preview" id="meld-preview">
                 <!-- [吃進來的牌] [?] [?] -->
             </div>
+
+            <p class="modal-hint">他還亮出了哪兩張牌？</p>
 
             <!-- 鍵盤 -->
             <div class="mini-keyboard">
@@ -168,8 +145,12 @@
                 </div>
             </div>
 
-            <div class="modal-actions">
-                <button id="meld-ok-btn" onclick="finishMeld()">確定</button>
+            <div class="modal-actions-apart">
+                <button class="delete-btn" onclick="onDeleteTile()">🗑️ 刪牌</button>
+                <div class="right-actions">
+                    <button class="cancel-btn" onclick="closeModals()">取消</button>
+                    <button id="meld-ok-btn" onclick="finishMeld()">確定</button>
+                </div>
             </div>
         </div>
     </div>

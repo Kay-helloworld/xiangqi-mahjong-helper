@@ -1,4 +1,4 @@
-// 象棋麻將助手 - 四家戰情室版 (吃牌優化)
+// 象棋麻將助手 - 四家戰情室版 (自動吃牌識別)
 
 const TILES = {
     R7: { name: '帥', count: 1, val: 7, type: 'red' },
@@ -23,23 +23,23 @@ const ID_MAP = {
 };
 const REV_MAP = Object.fromEntries(Object.entries(ID_MAP).map(([k, v]) => [v, k]));
 
+// Player Names
+const PLAYER_NAMES = ['我', '下家', '對家', '上家'];
+
 let gameState = {
     wallCount: 32,
-    myHand: [], // [id, id, ...]
+    myHand: [],
     drawnTile: null,
-    rivers: [[], [], [], []], // 0:Me, 1:Right, 2:Top, 3:Left
-    melds: [[], [], [], []], // [ { type:'eat', tiles:['R1','R1','R1'], from:3 } ]
-
-    mode: 'hand', // 'hand' or 'record'
+    rivers: [[], [], [], []],
+    melds: [[], [], [], []],
+    mode: 'hand',
     selectedPlayer: 3,
     history: []
 };
 
-// Temp state for Meld Action
-let tempAction = null; // { sourceP: int, sourceTIdx: int, tileId: string }
-let tempMeld = null;   // { eater: int, tiles: [] }
+let tempAction = null; // { sourceP, sourceTIdx, tileId }
+let tempMeld = null;   // { eater, tiles: [] }
 
-// Undo Logic
 function pushHistory() {
     gameState.history.push(JSON.parse(JSON.stringify({
         wallCount: gameState.wallCount,
@@ -72,21 +72,17 @@ function init() {
     attachEvents();
 }
 
-// --- 輸入操作 ---
-
 function inputTile(char) {
     const id = ID_MAP[char];
     if (!id) return;
 
-    // 如果是 Meld 模式 (彈窗開啟中)
+    // 如果 Modal 開啟，這就是輸入吃牌補充
     if (document.getElementById('meldInputModal').classList.contains('show')) {
         addMeldTile(char);
         return;
     }
 
     pushHistory();
-
-    // 扣除牌牆
     gameState.wallCount--;
     if (gameState.wallCount < 0) gameState.wallCount = 0;
 
@@ -103,10 +99,8 @@ function inputTile(char) {
             gameState.drawnTile = id;
         }
     } else {
-        // 記錄對手打牌
         gameState.rivers[gameState.selectedPlayer].push(id);
     }
-
     render();
 }
 
@@ -138,19 +132,28 @@ function sortHand() {
     gameState.myHand.sort((a, b) => val(b) - val(a));
 }
 
-// --- 河牌點擊與吃牌邏輯 ---
-
+// --- River Click ---
 function onRiverClick(pIdx, tIdx, id) {
     tempAction = { sourceP: pIdx, sourceTIdx: tIdx, tileId: id };
 
-    // Show Modal 1
-    const modal = document.getElementById('tileActionModal');
-    document.getElementById('modal-tile-display').innerHTML = createTile(id, 'normal');
+    // Auto detect eater (Logic: eater follows sourceP)
+    // 3(Left) -> 0(Me)
+    // 2(Top) -> 3(Left)
+    // 1(Right) -> 2(Top)
+    // 0(Me) -> 1(Right)
+    const eaterIdx = (pIdx + 1) % 4;
 
-    // Update labels if needed
-    // ...
+    tempMeld = {
+        eater: eaterIdx,
+        tiles: [id]
+    };
 
-    modal.classList.add('show');
+    // Setup Modal
+    const eaterName = PLAYER_NAMES[eaterIdx];
+    document.getElementById('meld-title').textContent = `${eaterName} 吃 ${REV_MAP[id]}`;
+
+    updateMeldPreview();
+    document.getElementById('meldInputModal').classList.add('show');
 }
 
 function closeModals() {
@@ -159,38 +162,9 @@ function closeModals() {
     tempMeld = null;
 }
 
-function onDeleteTile() {
-    if (!tempAction) return;
-    pushHistory();
-
-    // Remove from river
-    gameState.rivers[tempAction.sourceP].splice(tempAction.sourceTIdx, 1);
-
-    // Wall count? Usually inputTile decreased it. Deleting means it was a mistake?
-    // Let's increment wallCount back if we assume deletion is undoing an input.
-    gameState.wallCount++;
-
-    closeModals();
-    render();
-}
-
-function onEatConfirm(eaterIdx) {
-    // Hide Action Modal, Show Input Modal
-    document.getElementById('tileActionModal').classList.remove('show');
-
-    tempMeld = {
-        eater: eaterIdx,
-        tiles: [tempAction.tileId] // Start with the eaten tile
-    };
-
-    updateMeldPreview();
-    document.getElementById('meldInputModal').classList.add('show');
-}
-
 function addMeldTile(char) {
     if (!tempMeld) return;
-    if (tempMeld.tiles.length >= 3) return; // Max 3
-
+    if (tempMeld.tiles.length >= 3) return;
     const id = ID_MAP[char];
     tempMeld.tiles.push(id);
     updateMeldPreview();
@@ -199,35 +173,46 @@ function addMeldTile(char) {
 function updateMeldPreview() {
     const container = document.getElementById('meld-preview');
     container.innerHTML = tempMeld.tiles.map(id => createTile(id, 'small')).join('');
-
-    // Show placeholder for missing
+    // Placeholder
     for (let i = tempMeld.tiles.length; i < 3; i++) {
-        container.innerHTML += `<div class="game-tile small" style="border:1px dashed #777; background:none;">?</div>`;
+        container.innerHTML += `<div class="game-tile small" style="border:1px dashed #777; background:none; color:#777">?</div>`;
     }
+}
+
+function onDeleteTile() {
+    if (!tempAction) return;
+    pushHistory();
+    // 刪除該河牌 (視為誤操作)
+    gameState.rivers[tempAction.sourceP].splice(tempAction.sourceTIdx, 1);
+    // 補回 wallCount? 假設誤操作是之前 inputTile 扣過的
+    gameState.wallCount++;
+
+    closeModals();
+    render();
 }
 
 function finishMeld() {
     if (!tempMeld || !tempAction) return;
+    // 必須滿3張
+    if (tempMeld.tiles.length < 3) {
+        alert('吃牌必須滿3張');
+        return;
+    }
 
-    // Commit
     pushHistory();
 
-    // 1. Remove from source river
-    // 注意：River 可能變動了（如果剛才撤銷過），這裡假設 Index 還準確。
-    // 安全起見，我們可以重新找這張牌，或者相信 index。
+    // 1. Remove eaten tile from source river
     gameState.rivers[tempAction.sourceP].splice(tempAction.sourceTIdx, 1);
 
     // 2. Add to eater's Melds
     gameState.melds[tempMeld.eater].push({
         type: 'eat',
-        tiles: tempMeld.tiles, // [吃, 手, 手]
+        tiles: tempMeld.tiles,
         from: tempAction.sourceP
     });
 
     // 3. Update Wall Count
-    // 吃掉的那張 (tempAction.tileId) 原本已經在 river 裡 (wallCount 已扣1)
-    // 另外輸入的牌 (tempMeld.tiles 裡剩下的) 是從 eater 的手牌拿出來的 (未知 -> 已知)
-    // 所以 wallCount 要扣除 (tiles.length - 1)
+    // 只有補進來的2張是從未知變已知
     const extraTilesCount = tempMeld.tiles.length - 1;
     gameState.wallCount -= extraTilesCount;
     if (gameState.wallCount < 0) gameState.wallCount = 0;
@@ -236,37 +221,71 @@ function finishMeld() {
     render();
 }
 
-
-// --- 分析 & UI ---
+// --- Render & Analysis ---
 
 function getRemaining(id) {
     let count = TILES[id].count;
+    // ... logic same as before ...
+    // 手牌
     gameState.myHand.forEach(t => { if (t === id) count--; });
     if (gameState.drawnTile === id) count--;
+    // Rivers
     gameState.rivers.forEach(r => r.forEach(t => { if (t === id) count--; }));
+    // Melds
     gameState.melds.forEach(mList => mList.forEach(m => {
         m.tiles.forEach(t => { if (t === id) count--; });
     }));
     return count;
 }
 
+function analyze() {
+    // 1. Defense (Show Safe Tiles: Rivers + Melds' eaten tile?)
+    // 其實只有現物絕對安全。吃進去的牌已經不在河裡，但它曾經被打出過。
+    // 但是象棋麻將的「現物」定義是「該玩家打過的牌」。
+    // 這裡我們列出所有已見牌做為參考？不，只列出絕對安全牌。
+    // 安全牌 = 所有人打過的牌 (即便被吃走，只要打出過就算現物嗎？這要看規則。通常算！)
+
+    const defenseEl = document.getElementById('rec-defense');
+    let safeTiles = new Set();
+
+    // 如果被吃走，它還算是某人的捨牌嗎？
+    // 記錄歷史裡我們把 rivers splice 掉了。這會導致「現物」消失。
+    // 這是一個潛在bug。
+    // 如果想要保留現物記錄，我們也許不該 splice，而是標記 `eaten: true`?
+    // 或者我們假設因為被吃走，下家立刻打了一張，那張就變成新的現物。
+    // 被吃的那張因為不在河裡，所以也不能跟打？
+    // 通常規則：上家打的被吃，那張就不是「過水」對象，因為沒過。
+    // 所以 splice 是對的。
+
+    gameState.rivers.forEach(r => r.forEach(t => safeTiles.add(t)));
+
+    if (safeTiles.size === 0) {
+        defenseEl.innerHTML = '<div class="placeholder-text">無現物</div>';
+    } else {
+        let html = '';
+        Array.from(safeTiles).forEach(id => {
+            html += createTile(id, 'tiny');
+        });
+        defenseEl.innerHTML = html;
+    }
+
+    // 2. Offense Placeholder
+    document.getElementById('rec-offense').innerHTML = '<div class="placeholder-text">分析功能開發中...</div>';
+}
+
+
 function render() {
     document.getElementById('wall-count').textContent = gameState.wallCount;
 
-    // Rivers
     for (let i = 0; i < 4; i++) {
+        // Rivers
         const rEl = document.getElementById(`river-${i}`);
         rEl.innerHTML = '';
         gameState.rivers[i].forEach((id, idx) => {
-            // Add click event
             const div = document.createElement('div');
-            // Use innerHTML from createTile string, but add click handler
-            div.innerHTML = REV_MAP[id];
             div.className = createTileClass(id, 'small');
-            div.onclick = (e) => {
-                e.stopPropagation();
-                onRiverClick(i, idx, id);
-            };
+            div.innerHTML = REV_MAP[id];
+            div.onclick = (e) => { e.stopPropagation(); onRiverClick(i, idx, id); };
             rEl.appendChild(div);
         });
 
@@ -276,7 +295,7 @@ function render() {
             return `<div class="meld-group">${m.tiles.map(id => createTile(id, 'tiny')).join('')}</div>`;
         }).join('');
 
-        // Select logic
+        // Highlight
         if (i > 0) {
             const oppEl = document.getElementById(`player-${i}`);
             if (gameState.selectedPlayer === i && gameState.mode === 'record') {
@@ -313,7 +332,6 @@ function createTileClass(id, size) {
     return `game-tile ${size} ${type}`;
 }
 
-// --- Attach Events ---
 function selectOpponent(idx) {
     gameState.selectedPlayer = idx;
     gameState.mode = 'record';
@@ -331,12 +349,6 @@ function attachEvents() {
     });
 
     document.querySelectorAll('.kb-btn').forEach(btn => {
-        // Use onclick defined in HTML to call inputTile, or listen here?
-        // HTML has onclick="inputTile(...)". But addMeldTile is separate.
-        // Wait, index.html has data-tile setup for kb-btn?
-        // Let's stick to handling via JS listeners for cleaner separate logic.
-        // Actually, for Modal keyboard, I used onclick="addMeldTile" in HTML.
-        // For Main keyboard, I used data-tile.
         if (btn.dataset.tile) {
             btn.addEventListener('click', () => inputTile(btn.dataset.tile));
         }
@@ -346,37 +358,13 @@ function attachEvents() {
     document.getElementById('reset-btn').addEventListener('click', () => { if (confirm('重置?')) init(); });
 }
 
-// Analysis Placeholder
-function analyze() {
-    // 1. Defense (Show Safe Tiles)
-    const defenseEl = document.getElementById('rec-defense');
-    let safeTiles = new Set();
-    gameState.rivers.forEach(r => r.forEach(t => safeTiles.add(t)));
-
-    if (safeTiles.size === 0) {
-        defenseEl.innerHTML = '<div class="placeholder">無現物</div>';
-    } else {
-        let html = '';
-        Array.from(safeTiles).forEach(id => {
-            html += createTile(id, 'tiny');
-        });
-        defenseEl.innerHTML = html;
-    }
-
-    // 2. Offense (EV) - Just a count for now
-    const offenseEl = document.getElementById('rec-offense');
-    // Calculate shanten/EV here... (Omitted for brevity in this step, can add back)
-    offenseEl.innerHTML = '<div class="placeholder">分析中...</div>';
-}
-
 init();
-// Make global for HTML access
+// Global exports for inline HTML calls
 window.inputTile = inputTile;
 window.discardMe = discardMe;
-window.onRiverClick = onRiverClick; // Important
-window.closeModals = closeModals;
+window.onRiverClick = onRiverClick; // used in JS render mainly
 window.onDeleteTile = onDeleteTile;
-window.onEatConfirm = onEatConfirm;
 window.addMeldTile = addMeldTile;
 window.finishMeld = finishMeld;
 window.undo = undo;
+window.closeModals = closeModals;
